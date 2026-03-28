@@ -4,7 +4,7 @@
   "installCommand": "cd math-routing-agent && npm install",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
