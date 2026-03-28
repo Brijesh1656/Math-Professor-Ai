@@ -1,28 +1,50 @@
 """
 Vercel Serverless Function for research turn logging.
-Accepts a TurnLog JSON body, SHA-256 hashes the caller IP,
-applies rate limits, then inserts into Supabase rag_logs table.
+Uses Supabase REST API directly (no supabase-py dependency).
 """
 
 from http.server import BaseHTTPRequestHandler
 import json
 import os
 import hashlib
+import urllib.request
+import urllib.error
 from datetime import datetime, timedelta, timezone
 
-try:
-    from supabase import create_client
-    _SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
-    _SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
-    if _SUPABASE_URL and _SUPABASE_KEY:
-        _supabase = create_client(_SUPABASE_URL, _SUPABASE_KEY)
-        SUPABASE_AVAILABLE = True
-    else:
-        _supabase = None
-        SUPABASE_AVAILABLE = False
-except ImportError:
-    _supabase = None
-    SUPABASE_AVAILABLE = False
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
+SUPABASE_AVAILABLE = bool(SUPABASE_URL and SUPABASE_KEY)
+
+
+def supabase_select(table, select, filters):
+    """Run a SELECT query via Supabase REST API."""
+    params = f'select={select}'
+    for key, op, val in filters:
+        if op == 'eq':
+            params += f'&{key}=eq.{val}'
+        elif op == 'gte':
+            params += f'&{key}=gte.{val}'
+    url = f'{SUPABASE_URL}/rest/v1/{table}?{params}'
+    req = urllib.request.Request(url, headers={
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+    })
+    with urllib.request.urlopen(req) as resp:
+        return json.loads(resp.read().decode())
+
+
+def supabase_insert(table, row):
+    """Insert a row via Supabase REST API."""
+    url = f'{SUPABASE_URL}/rest/v1/{table}'
+    data = json.dumps(row).encode()
+    req = urllib.request.Request(url, data=data, headers={
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+    })
+    with urllib.request.urlopen(req) as resp:
+        return resp.status
 
 
 class handler(BaseHTTPRequestHandler):
@@ -43,7 +65,7 @@ class handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length).decode('utf-8'))
 
             raw_ip = self.headers.get('x-forwarded-for', '0.0.0.0').split(',')[0].strip()
-            ip_hash = hashlib.sha256(raw_ip.encode('utf-8')).hexdigest()
+            ip_hash = hashlib.sha256(raw_ip.encode()).hexdigest()
 
             session_id = str(data.get('sessionId', ''))
             if not session_id:
@@ -52,26 +74,20 @@ class handler(BaseHTTPRequestHandler):
 
             # Rate limit 1: max 5 sessions per ip_hash per 24h
             since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-            sessions_resp = (
-                _supabase.table('rag_logs')
-                .select('session_id')
-                .eq('ip_hash', ip_hash)
-                .gte('timestamp', since)
-                .execute()
-            )
-            unique_sessions = {r['session_id'] for r in (sessions_resp.data or [])}
+            rows = supabase_select('rag_logs', 'session_id', [
+                ('ip_hash', 'eq', ip_hash),
+                ('timestamp', 'gte', since),
+            ])
+            unique_sessions = {r['session_id'] for r in rows}
             if session_id not in unique_sessions and len(unique_sessions) >= 5:
                 self._send(429, {'success': False, 'error': 'Rate limit: max 5 sessions per 24h'})
                 return
 
             # Rate limit 2: max 8 turns per session
-            turns_resp = (
-                _supabase.table('rag_logs')
-                .select('turn_number')
-                .eq('session_id', session_id)
-                .execute()
-            )
-            if len(turns_resp.data or []) >= 8:
+            turns = supabase_select('rag_logs', 'turn_number', [
+                ('session_id', 'eq', session_id),
+            ])
+            if len(turns) >= 8:
                 self._send(429, {'success': False, 'error': 'Rate limit: max 8 turns per session'})
                 return
 
@@ -93,7 +109,7 @@ class handler(BaseHTTPRequestHandler):
                 'ip_hash': ip_hash,
             }
 
-            _supabase.table('rag_logs').insert(row).execute()
+            supabase_insert('rag_logs', row)
             self._send(200, {'success': True})
 
         except Exception as e:
@@ -105,4 +121,4 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
-        self.wfile.write(json.dumps(body).encode('utf-8'))
+        self.wfile.write(json.dumps(body).encode())
