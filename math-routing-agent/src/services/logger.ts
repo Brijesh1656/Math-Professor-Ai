@@ -1,19 +1,18 @@
-import { createClient } from '@supabase/supabase-js';
 
 export interface TurnLog {
   sessionId: string;
   turnNumber: number;
-  subQuery: string;
-  originalQuery: string;
-  ragChunkCount: number;
-  groundingChunkCount: number;
-  contextTokenCount: number;
-  usedWebSearch: boolean;
-  retrievalTier: 1 | 2 | 3;
-  similarityScore: number;
-  anchoringEnabled: boolean;
-  wasCorrect?: boolean;
-  problemType?: string;
+  subQuery: string;              // The actual decomposed sub-query text (not the original question)
+  originalQuery: string;         // The original user question
+  ragChunkCount: number;         // Number of chunks retrieved from TF-IDF vector store
+  groundingChunkCount: number;   // Number of web search grounding chunks from Gemini metadata
+  contextTokenCount: number;     // Approximate token count of accumulated context at this turn
+  usedWebSearch: boolean;        // Whether Tier 3 (Google Search) fired for this turn
+  retrievalTier: 1 | 2 | 3;     // Which retrieval tier actually provided context
+  similarityScore: number;       // Top TF-IDF cosine similarity score (0 if web search or no RAG)
+  anchoringEnabled: boolean;     // Whether turn-aware keyword anchoring (Fix 5) was active
+  wasCorrect?: boolean;          // Set by markLastTurnCorrect() from human feedback
+  problemType?: string;          // algebra / calculus / geometry / statistics / other
   timestamp: string;
 }
 
@@ -21,12 +20,6 @@ const STORAGE_KEY = 'rag_research_logs';
 
 let _sessionId: string = generateId();
 let _turnNumber: number = 0;
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-const supabase = supabaseUrl && supabaseKey
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -49,7 +42,7 @@ export function saveTurnLog(
     timestamp: new Date().toISOString(),
   };
 
-  // Persist to localStorage
+  // Persist to localStorage — silent fail so logging never breaks the UI
   try {
     const existing: TurnLog[] = JSON.parse(
       localStorage.getItem(STORAGE_KEY) || '[]'
@@ -60,30 +53,8 @@ export function saveTurnLog(
     // Intentional no-op
   }
 
-  // Fire-and-forget direct Supabase insert
-  if (supabase) {
-    supabase.from('rag_logs').insert({
-      session_id: log.sessionId,
-      turn_number: log.turnNumber,
-      sub_query: log.subQuery,
-      original_query: log.originalQuery,
-      rag_chunk_count: log.ragChunkCount,
-      grounding_chunk_count: log.groundingChunkCount,
-      context_token_count: log.contextTokenCount,
-      used_web_search: log.usedWebSearch,
-      retrieval_tier: log.retrievalTier,
-      similarity_score: log.similarityScore,
-      anchoring_enabled: log.anchoringEnabled,
-      was_correct: log.wasCorrect ?? null,
-      problem_type: log.problemType ?? 'other',
-      ip_hash: 'anonymous',
-      timestamp: log.timestamp,
-    }).then(() => {
-      if (import.meta.env.DEV) {
-        console.log(`[RAG Logger] Turn ${log.turnNumber} logged to Supabase ✓ session: ${log.sessionId}`);
-      }
-    }).catch(() => {});
-  }
+  // Fire-and-forget server-side logging to Supabase via Flask endpoint
+  sendLogToServer(log).catch(() => {});
 }
 
 export function markLastTurnCorrect(correct: boolean): void {
@@ -141,3 +112,25 @@ export function clearLogs(): void {
     // Intentional no-op
   }
 }
+
+// Derive the logging API URL from the chunking API URL env var so no extra
+// env variable is needed.
+function getLoggingApiUrl(): string {
+  const chunkingUrl = (import.meta.env.VITE_CHUNKING_API_URL as string) || '';
+  if (chunkingUrl) {
+    return chunkingUrl.replace(/\/chunk\/?$/, '/log-turn');
+  }
+  return import.meta.env.DEV
+    ? 'http://localhost:5000/log-turn'
+    : '/api/log-turn';
+}
+
+async function sendLogToServer(log: TurnLog): Promise<void> {
+  const url = getLoggingApiUrl();
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(log),
+  });
+}
+
