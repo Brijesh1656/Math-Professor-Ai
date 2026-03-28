@@ -12,12 +12,12 @@ interface MessageBubbleProps {
   onQuestionSelect?: (question: string) => void;
 }
 
-const TypingIndicator: React.FC = () => (
+const TypingIndicator: React.FC<{ text?: string }> = ({ text }) => (
     <div className="flex items-center space-x-2 p-3">
         <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full typing-dot" style={{animationDelay: '0s'}}></div>
         <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full typing-dot" style={{animationDelay: '0.2s'}}></div>
         <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full typing-dot" style={{animationDelay: '0.4s'}}></div>
-        <span className="text-sm text-gray-400 ml-2">Thinking...</span>
+        <span className="text-sm text-gray-400 ml-2">{text || 'Thinking...'}</span>
     </div>
 );
 
@@ -54,7 +54,7 @@ ${message.sources.map(s => `- [${s.title}](${s.uri})`).join('\n')}
   
   const renderMessageContent = () => {
     if (message.isLoading) {
-      return <TypingIndicator />;
+      return <TypingIndicator text={message.text || undefined} />;
     }
     const sanitizedHtml = marked.parse(message.text.replace(/<script.*?>.*?<\/script>/gi, ''));
     return <div className="prose prose-sm prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white prose-strong:text-white prose-code:text-cyan-300 prose-a:text-blue-400" dangerouslySetInnerHTML={{ __html: sanitizedHtml as string }} />;

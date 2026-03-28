@@ -72,7 +72,7 @@ class SemanticChunker:
     def __init__(
         self,
         model_name: str = "all-MiniLM-L6-v2",
-        overlap_tokens: int = 150,
+        overlap_tokens: int = 64,  # FIX 7: changed from 150 to 64 (paper specification)
         min_chunk_tokens: int = 50,
         max_chunk_tokens: int = 512,
         similarity_threshold: float = 0.7,

@@ -61,7 +61,7 @@ export const chunkDocument = async (
       body: JSON.stringify({
         text,
         document_id: options.document_id,
-        overlap_tokens: options.overlap_tokens ?? 150,
+        overlap_tokens: options.overlap_tokens ?? 64, // FIX 7: 64-token overlap per paper spec
         max_chunk_tokens: options.max_chunk_tokens ?? 512,
         min_chunk_tokens: options.min_chunk_tokens ?? 50,
         similarity_threshold: options.similarity_threshold ?? 0.7,
