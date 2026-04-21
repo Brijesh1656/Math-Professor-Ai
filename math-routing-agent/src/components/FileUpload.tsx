@@ -1,24 +1,24 @@
 import React, { useRef } from 'react';
-import { UploadIcon } from '../constants';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
   disabled: boolean;
 }
 
+const PaperclipIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+  </svg>
+);
+
 const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      onFileSelect(event.target.files[0]);
-      // Reset the input value to allow uploading the same file again
-      event.target.value = '';
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onFileSelect(e.target.files[0]);
+      e.target.value = '';
     }
-  };
-
-  const handleClick = () => {
-    fileInputRef.current?.click();
   };
 
   return (
@@ -33,13 +33,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled }) => {
       />
       <button
         type="button"
-        onClick={handleClick}
+        onClick={() => fileInputRef.current?.click()}
         disabled={disabled}
-        className="relative p-4 rounded-2xl text-gray-400 hover:text-blue-400 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 active:scale-95 glass group"
-        aria-label="Upload a text or PDF file"
+        title="Upload a .txt or .pdf file"
+        className="mb-0.5 flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-white/30 hover:text-white/60 hover:bg-white/[0.05] disabled:opacity-25 disabled:cursor-not-allowed transition-all duration-150"
+        aria-label="Upload file"
       >
-        <UploadIcon className="w-6 h-6 transform group-hover:-translate-y-0.5 transition-transform" />
-        <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 animate-pulse transition-opacity"></span>
+        <PaperclipIcon className="w-4 h-4" />
       </button>
     </>
   );

@@ -9,26 +9,49 @@ const ExtractedQuestions: React.FC<ExtractedQuestionsProps> = ({ questions, onQu
   if (questions.length === 0) return null;
 
   return (
-    <div className="mt-6 flex flex-col space-y-3">
-      <h4 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-        <span>📋</span>
-        <span>Extracted Questions</span>
-      </h4>
-      {questions.map((q, index) => (
-        <button
-          key={index}
-          onClick={() => onQuestionSelect(q)}
-          className="group w-full text-left p-4 glass rounded-xl hover:glass-strong border-2 border-white/10 hover:border-blue-400/50 transition-all duration-300 card-hover"
-        >
-          <div className="flex items-start gap-3">
-            <span className="text-blue-400 font-bold text-sm mt-0.5">{index + 1}.</span>
-            <p className="text-sm text-gray-300 group-hover:text-white transition-colors flex-1">{q}</p>
-            <svg className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </button>
-      ))}
+    <div className="mt-4 pt-3.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <p className="text-[10px] uppercase tracking-widest text-white/25 mb-3">
+        Questions Found <span className="text-emerald-400/60">({questions.length})</span>
+      </p>
+      <div className="space-y-1.5">
+        {questions.map((q, i) => (
+          <button
+            key={i}
+            onClick={() => onQuestionSelect(q)}
+            className="group w-full text-left px-3.5 py-3 rounded-xl transition-all duration-150"
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.07)',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(16,185,129,0.06)';
+              (e.currentTarget as HTMLButtonElement).style.border = '1px solid rgba(16,185,129,0.22)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.02)';
+              (e.currentTarget as HTMLButtonElement).style.border = '1px solid rgba(255,255,255,0.07)';
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className="flex-shrink-0 w-6 h-6 rounded-lg text-[11px] font-bold text-emerald-400/70 flex items-center justify-center"
+                style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.15)' }}
+              >
+                {i + 1}
+              </span>
+              <p className="text-sm text-white/55 group-hover:text-white/85 transition-colors flex-1 text-left leading-snug">
+                {q}
+              </p>
+              <svg
+                className="w-3.5 h-3.5 flex-shrink-0 text-white/15 group-hover:text-emerald-400/50 group-hover:translate-x-0.5 transition-all"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };

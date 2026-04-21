@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { SendIcon } from '../constants';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface ChatInputProps {
   onSendMessage: (text: string) => void;
@@ -7,45 +6,74 @@ interface ChatInputProps {
   children?: React.ReactNode;
 }
 
+const ArrowUpIcon: React.FC = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+  </svg>
+);
+
 const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled, children }) => {
   const [text, setText] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  }, [text]);
+
+  const submit = () => {
     if (text.trim() && !disabled) {
-      onSendMessage(text);
+      onSendMessage(text.trim());
       setText('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+  };
+
+  const canSend = text.trim().length > 0 && !disabled;
+
   return (
-    <form onSubmit={handleSubmit} className="flex items-center space-x-3 p-4">
+    <form onSubmit={e => { e.preventDefault(); submit(); }} className="flex items-end gap-2 p-3">
       {children}
-      <div className="flex-grow relative">
-        <input
-          type="text"
+
+      <div className="flex-grow py-0.5">
+        <textarea
+          ref={textareaRef}
+          rows={1}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Ask me anything about mathematics..."
+          onChange={e => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask a math question… (Shift+Enter for newline)"
           disabled={disabled}
-          className="w-full px-6 py-4 bg-white/5 text-gray-100 placeholder-gray-500 focus:outline-none transition-all duration-300 rounded-2xl border-2 border-transparent focus:border-blue-400/50 focus:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-3 py-2 bg-transparent text-[15px] text-white/90 placeholder-white/20 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed resize-none leading-relaxed overflow-hidden"
+          style={{ maxHeight: 200 }}
         />
-        {text && (
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">
-            {text.length}
-          </div>
-        )}
       </div>
+
       <button
         type="submit"
-        disabled={disabled || !text.trim()}
-        className="relative p-4 rounded-2xl text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-lg hover:shadow-xl btn-hover-lift group"
-        aria-label="Send message"
+        disabled={!canSend}
+        aria-label="Send"
+        className="flex-shrink-0 mb-0.5 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 focus:outline-none"
+        style={canSend
+          ? {
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#fff',
+              boxShadow: '0 2px 12px rgba(16,185,129,0.35)',
+            }
+          : {
+              background: 'rgba(255,255,255,0.05)',
+              color: 'rgba(255,255,255,0.2)',
+              cursor: 'not-allowed',
+            }
+        }
       >
-        <SendIcon className="w-6 h-6 transform group-hover:translate-x-0.5 transition-transform" />
-        {!disabled && text.trim() && (
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
-        )}
+        <ArrowUpIcon />
       </button>
     </form>
   );
